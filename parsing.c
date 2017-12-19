@@ -157,9 +157,12 @@ int main(int argc, char** argv) {
          mpc_result_t r;
          if(mpc_parse("<stdin>", input, Lispy, &r)){
           mpc_ast_print(r.output);
+          
           /*mpc_ast_delete(r.output);*/
+          
           mpc_ast_t* a = r.output;
-         /* printf("Tag: %s\n", a->tag);
+
+          /* printf("Tag: %s\n", a->tag);
           printf("Contents: %s\n", a->contents);
           printf("Number of children: %i\n", a->children_num);
 
@@ -168,9 +171,10 @@ int main(int argc, char** argv) {
           printf("First Child Contents: %s\n", c0->contents);
           printf("First Child Number of children: %i\n",c0->children_num);
           */
-            lval result =eval(r.output);
-            lval_println(result);
-            mpc_ast_delete(r.output);
+ 
+           lval result =eval(r.output);
+           lval_println(result);
+           mpc_ast_delete(r.output);
          
          }
          else{
