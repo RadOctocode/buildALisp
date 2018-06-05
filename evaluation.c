@@ -32,7 +32,7 @@ long eval_op(long x, char* op, long y){
 
 long eval(mpc_ast_t* t){
 
-	if(strstr(t->tag,"number")){
+	if(strstr(t->tag,"num")){
 		return atoi(t->contents);
 	}
 	printf("%s\n",t->children[1]->contents );
@@ -52,50 +52,48 @@ long eval(mpc_ast_t* t){
 }
 
 int main(int argc,  char** argv){
-	mpc_parser_t* Number = mpc_new("number");
-  	mpc_parser_t* Operator = mpc_new("op");
- 	mpc_parser_t* Expr = mpc_new("expr");
- 	mpc_parser_t* Lispy = mpc_new("lispy");
-  
-  mpca_lang(MPCA_LANG_DEFAULT,
-    "                                                  \
-      number: /-?[0-9]+/ ;                             \
-      op    : '+' | '-' | '*' | '/' ;                  \
-      expr  : <number> | '(' <op> <expr>+ ')' ;        \
-      lispy : /^/ <op> <expr>+ /$/ ;		           \
-    ",
-    Number, Operator, Expr, Lispy);
-  
+    mpc_parser_t* Number = mpc_new("num");
+    mpc_parser_t* Operation = mpc_new("op");
+    mpc_parser_t* Expression = mpc_new("expr");
+    mpc_parser_t* Lisp= mpc_new("lisp");
 
-	puts("Lisp Version 0.0.1");
-	puts("Ctrl+C TO EXIT");
-	
-	while(1){
+    mpca_lang(MPCA_LANG_DEFAULT,
+        "                                       \
+            num : /-?[0-9]+/ ;                  \
+            op  : '+' | '-' | '/' | '*' ;       \
+            expr: <num> | '(' <op> <expr>+ ')' ;\
+            lisp: /^/ <op> <expr>+ /$/ ;        \
+        ",
+        Number, Operation, Expression, Lisp);
 
-		char* input=readline("lisp>");
-		add_history(input);
+    puts("Lisp Version 0.0.1");
+    puts("Ctrl+C TO EXIT");
+    
+    while(1){
+        char* input=readline("lisp>");
+        add_history(input);
 
-		mpc_result_t r;
-		if(mpc_parse("<stdin>", input, Lispy, &r)){
-			
-			long result = eval(r.output);
-      		printf("%li\n", result);
-      		mpc_ast_delete(r.output);
-	
-		}
+        mpc_result_t r;
 
-		else{
-			mpc_err_print(r.error);
-			mpc_err_delete(r.error);
-		}
+        if(mpc_parse("<stdin>",input,Lisp,&r)){//
+            
+            long result = eval(r.output);
+            printf("%li\n", result);
+            mpc_ast_delete(r.output);
+    
+        }
 
-
-		free(input);	
-
-	}
+        else{
+            mpc_err_print(r.error);
+            mpc_err_delete(r.error);
+        }
 
 
-	mpc_cleanup(4,Number, Operator, Expr, Lispy);
+        free(input);    
 
-	return 0;
+    }
+
+    mpc_cleanup(4,Number, Operation, Expression, Lisp);
+
+    return 0;	
 }
