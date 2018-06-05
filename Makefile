@@ -1,6 +1,11 @@
-all: lispy
+all: qexpr sexpr
 
-lispy: mpc.c mpc.h Sexpr.c
-		cc -std=c99 -Wall Sexpr.c mpc.c -ledit -lm -o Sexpr
+qexpr: mpc.c mpc.h qexpr.c
+		cc -std=c99 -Wall qexpr.c mpc.c -ledit -lm -o qexpr
+
+
+sexpr: mpc.c mpc.h sexpr.c
+		cc -std=c99 -Wall sexpr.c mpc.c -ledit -lm -o sexpr
+
 clean:
-	rm Sexpr
+	rm qexpr sexpr

@@ -1,22 +1,19 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "mpc.h"
 #ifdef _WIN32
-#include <string.h>
 
 static char buffer[2048];
 
-/*Fake readline function*/
-char* readline(){
-    fputs();
-    fgets(buffer,2048,stdin);
-    char* cpy=malloc(strlen(buffer)+1);
-    strcpy(cpy,buffer);
-    cpy[strlen(cpy)-1]='\0';
-    return cpy;
-}
+	char* readline(char* prompt){
+		fputs(prompt,stdout);
+		fgets(buffer, 2048,stdin);
+		char* cpy=malloc(strlen(buffer)+1);
+		strcpy(cpy,buffer);
+		cpy[strlen(cpy)-1]='\0';
+		return cpy;
+	}
 
-void add_history(char* unused){}
+	void add_history(char* str){}
+
 
 
 #else
@@ -24,171 +21,106 @@ void add_history(char* unused){}
 #include <editline/history.h>
 #endif
 
-enum{ LVAL_NUM, LVAL_ERR};
-enum{ LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM};
+int main(int argc, char const *argv[]){
+	
+	//polish grammar
+	mpc_parser_t* Number = mpc_new("num");
+	mpc_parser_t* Operation = mpc_new("op");
+	mpc_parser_t* Expression = mpc_new("expr");
+	mpc_parser_t* Lisp= mpc_new("lisp");
 
-typedef struct {
-    int type;
-    long num;
-    int err;
-} lval;
+	mpca_lang(MPCA_LANG_DEFAULT,
+		"						 			 \
+			num: /-?[0-9]+/;				 \
+			op: '+' | '-' | '/' | '*' | \'%\';		 \
+			expr: <num> |'(' <op> <expr>+ ')';\
+			lisp: /^/ <op> <expr>+ /$/ ;	 \
+		",
+		Number, Operation, Expression, Lisp);
+	//polish grammar
 
-lval lval_num(long x){
-    lval v;
-    v.type=LVAL_NUM;
-    v.num=x;
-    return v;
+/*
+	//decimal grammar
+	mpc_parser_t* Digit = mpc_new("dgt");
+	mpc_parser_t* Point = mpc_new("pnt");
+	mpc_parser_t* De_num = mpc_new("dnum");
 
+	mpca_lang(MPCA_LANG_DEFAULT,
+		"						 			 \
+			dgt: /[0-9]+/;  				 \
+			pnt: '.';				 		 \
+			dnum:/^/ <dgt><pnt><dgt> /$/;\
+		",
+		Digit,Point,De_num);
+	//decimal grammar
+*/
+/*
+	//conventional grammar
+	mpc_parser_t* Number = mpc_new("num");
+	mpc_parser_t* Operation = mpc_new("op");
+	mpc_parser_t* Expression = mpc_new("expr");
+	mpc_parser_t* Lisp= mpc_new("lisp");
+
+	mpca_lang(MPCA_LANG_DEFAULT,
+		"						 			 \
+			num: /-?[0-9]+/;				 \
+			op: '+' | '-' | '/' | '*' | \'%\';		 \
+			expr: <num> |'(' <expr>+ <op> <expr>+ ')';\
+			lisp: /^/ <expr>+ <op> <expr>+ /$/ ;	 \
+		",
+		Number, Operation, Expression, Lisp);
+	//conventional grammar
+*/
+	//terminal
+	puts("Lisp Version 0.0.1");
+	puts("Ctrl+C TO EXIT");
+	
+	while(1){
+		char* input=readline("lisp>");
+		add_history(input);
+
+		mpc_result_t r;//the result of the grammar
+
+		if(mpc_parse("<stdin>",input,Lisp,&r)){//
+			//when successful print AST
+			mpc_ast_print(r.output);
+			mpc_ast_delete(r.output);
+		}
+
+		else{
+			//otherwise print error
+			mpc_err_print(r.error);
+			mpc_err_delete(r.error);
+		}
+
+
+		free(input);	
+
+	}
+	//terminal
+
+
+	mpc_cleanup(4,Number, Operation, Expression, Lisp);
+
+	return 0;
 }
 
-lval lval_err(int x){
-    lval v;
-    v.type=LVAL_ERR;
-    v.err=x;
-    return v;
-}
+/*
+    › Write a regular expression matching strings of all a or b such as aababa or bbaa.
+		
+    › Write a regular expression matching strings of consecutive a and b such as ababab or aba.
 
-void lval_print(lval v){
-    switch(v.type){
-        case LVAL_NUM: printf("%li", v.num); break;
-        case LVAL_ERR:
-           if(v.err==LERR_DIV_ZERO){
-                printf("div error"); 
-           }
-           if(v.err==LERR_BAD_OP){
-                printf("inval error");
-           }
+    › Write a regular expression matching pit, pot and respite but not peat, spit, or part.
+    	
+    › Change the grammar to add a new operator such as %.
 
-           if(v.err==LERR_BAD_NUM){
-                printf("inval numb");
-           }
-           break;
-    }
-}
+    › Change the grammar to recognise operators written in textual format add, sub, mul, div.
+    	-replace the symbols with add,sub,mul,div
 
-void lval_println(lval v){
-    lval_print(v);
-    putchar('\n');
-}
-lval eval_op(lval x, char* op, lval y) {
-   if(x.type == LVAL_ERR){return x;}
-   if(y.type == LVAL_ERR){return y;}
+    › Change the grammar to recognize decimal numbers such as 0.01, 5.21, or 10.2.
+	
+    › Change the grammar to make the operators written conventionally, between two expressions.
 
-   if (strcmp(op, "+") == 0) { return lval_num(x.num + y.num); }
-   if (strcmp(op, "-") == 0) { return lval_num(x.num - y.num); }
-   if (strcmp(op, "%") == 0) { return lval_num(x.num % y.num); }
-   if (strcmp(op, "*") == 0) { return lval_num(x.num * y.num); }
-   if (strcmp(op, "/") == 0) {
-       return y.num ==0 ? lval_err(LERR_DIV_ZERO): lval_num(x.num/y.num);
-       
-   }
-   if (strcmp(op, "^") == 0) {
-       long reps=y.num;
-       long retVal=1;
-       while(reps){
-        retVal=(x.num)*retVal;
-        reps=reps-1;
-       }
-      return lval_num(retVal); 
-   }
+    › Use the grammar from the previous chapter to parse Doge. You must add start and end of input.
 
-   return lval_err(LERR_BAD_OP);
-}
-
-lval eval(mpc_ast_t* t) {
- 
-   
-   if((!(strstr(t->tag, "number")))&&(t->children_num==4)){
-       char* myop = t->children[1]->contents;
-       if(*myop=='-'){       
-          errno=0;
-          long x=0-(strtol(t->children[2]->contents,NULL,10));
-          return errno != ERANGE ? lval_num(x): lval_err(LERR_BAD_NUM);
-       }
-   }
-
-   if (strstr(t->tag, "number")) {
-       errno=0;
-       long x=strtol(t->contents,NULL,10);
-       return errno != ERANGE ? lval_num(x): lval_err(LERR_BAD_NUM);
-
-   }
-   
-   char* op = t->children[1]->contents;
-   lval x = eval(t->children[2]);
-  
-   int i = 3; 
-   while (strstr(t->children[i]->tag, "expr")) {
-       x = eval_op(x, op, eval(t->children[i]));
-       i++;
-   }
-
-   return x;
-}
-
-int main(int argc, char** argv) {
-    /* Create Some Parsers */
-  mpc_parser_t* Number   = mpc_new("number");
-  mpc_parser_t* Operator = mpc_new("operator");
-  mpc_parser_t* Expr     = mpc_new("expr");
-  mpc_parser_t* Lispy    = mpc_new("lispy");
-  
-  /* Define them with the following Language */
-  mpca_lang(MPCA_LANG_DEFAULT,
-    "                                                     \
-      number   : /-?[0-9]+/ ;                             \
-      operator : '+' | '-' | '*' | '/' | '%' | '^';       \
-      expr     : <number> | '(' <operator> <expr>+ ')' ;  \
-      lispy    : /^/ <operator> <expr>+ /$/ ;             \
-    ",
-    Number, Operator, Expr, Lispy);
-
-
- 
-   puts("Lispy Version 0.0.0.0.1");
-   puts("Press Ctrl+c to Exit\n");
-
-   while (1) {
-
-         /* takes string and output stream*/
-         char* input=readline("lispy> ");
-         add_history(input);
-
-         mpc_result_t r;
-         if(mpc_parse("<stdin>", input, Lispy, &r)){
-          mpc_ast_print(r.output);
-          
-          /*mpc_ast_delete(r.output);*/
-          
-          mpc_ast_t* a = r.output;
-
-          /* printf("Tag: %s\n", a->tag);
-          printf("Contents: %s\n", a->contents);
-          printf("Number of children: %i\n", a->children_num);
-
-          mpc_ast_t* c0 = a->children[0];
-          printf("First Child Tag: %s\n", c0->tag);
-          printf("First Child Contents: %s\n", c0->contents);
-          printf("First Child Number of children: %i\n",c0->children_num);
-          */
- 
-           lval result =eval(r.output);
-           lval_println(result);
-           mpc_ast_delete(r.output);
-         
-         }
-         else{
-            /*Otherwise print and delete error*/
-            mpc_err_print(r.error);
-            mpc_err_delete(r.error);
-         
-         }
-
-         /* Echo input back to user */
-
-         free(input);
-    }
-
-   mpc_cleanup(4, Number, Operator, Expr, Lispy);
-   return 0;
-}
+*/
